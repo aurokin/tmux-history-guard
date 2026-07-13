@@ -54,6 +54,25 @@ Ignore a pane without disabling the server-wide monitor:
 tmux set-option -pt '%42' @history-guard-ignore on
 ```
 
+## Responding to alerts
+
+The report identifies each flagged pane by pane ID and by its human-readable
+`session:window.pane`, window name, and current command.
+
+- **Warning:** inspect the pane and plan reclamation before it reaches critical.
+- **Critical:** archive important scrollback now, then clear it manually when safe.
+
+```sh
+# Preserve a rendered snapshot first when the scrollback matters.
+./scripts/archive.sh '%42'
+
+# Reclaim that pane's history only after deciding the scrollback can be discarded.
+tmux clear-history -t '%42'
+```
+
+Clearing permanently discards the pane's current scrollback. The plugin displays
+the command but never runs it automatically.
+
 ## Commands
 
 ```sh

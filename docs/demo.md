@@ -23,7 +23,9 @@ tmux set-option -g @history-guard-warn-bytes 1
 ~/code/tmux-history-guard/scripts/check.sh --notify
 ```
 
-The guard records and displays the pane responsible. Repeating the command does not spam another warning until severity increases or returns to normal first.
+The guard records and displays the pane responsible, its `session:window.pane`,
+window name, current command, and how to respond. Repeating the command does not
+spam another warning until severity increases or returns to normal first.
 
 Restore the default:
 

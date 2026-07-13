@@ -157,6 +157,31 @@ tmux_guard_severity_rank() {
     esac
 }
 
+tmux_guard_safe_terminal_text() {
+    local value="$1"
+    printf '%s' "$value" | tr '\r\n' '  ' | \
+        LC_ALL=C tr -d '\000-\011\013\014\016-\037\177'
+}
+
+tmux_guard_escape_tmux_format() {
+    local value="$1"
+    value=${value//#/##}
+    printf '%s' "$value"
+}
+
+tmux_guard_pane_description() {
+    local pane_id="$1"
+    local description
+    description="$(tmux_guard_tmux display-message -p -t "$pane_id" \
+        '#{session_name}:#{window_index}.#{pane_index} window=#{window_name} command=#{pane_current_command}' \
+        2>/dev/null || true)"
+    if [ -n "$description" ]; then
+        tmux_guard_safe_terminal_text "$description"
+    else
+        printf '%s' "$pane_id"
+    fi
+}
+
 tmux_guard_runtime_dir() {
     local runtime_dir
     local runtime_base

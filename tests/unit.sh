@@ -26,6 +26,12 @@ assert_eq ok "$(tmux_guard_severity 9 10 20)" 'classifies normal usage'
 assert_eq warn "$(tmux_guard_severity 10 10 20)" 'classifies warning usage'
 assert_eq critical "$(tmux_guard_severity 20 10 20)" 'classifies critical usage'
 assert_eq 2 "$(tmux_guard_severity_rank critical)" 'ranks critical severity'
+unsafe_text="$(printf 'line1\nline2\033[31m')"
+assert_eq 'line1 line2[31m' "$(tmux_guard_safe_terminal_text "$unsafe_text")" \
+    'removes terminal control bytes while preserving readable text'
+assert_eq 'name ##{session_name} ##(command)' \
+    "$(tmux_guard_escape_tmux_format 'name #{session_name} #(command)')" \
+    'escapes user text before tmux format expansion'
 tmux_guard_version_at_least 3.2 3 2 || fail 'accepts the minimum popup version'
 tmux_guard_version_at_least 3.10a 3 2 || fail 'compares multi-digit minor versions numerically'
 if tmux_guard_version_at_least 3.1c 3 2; then

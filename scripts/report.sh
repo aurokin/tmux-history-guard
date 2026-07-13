@@ -42,6 +42,9 @@ render_report() {
     local ignored_total=0
     local monitored=0
     local ignored=0
+    local warning_count=0
+    local critical_count=0
+    local action_panes=''
     local pane_id session_id window_id pane_index history_size history_limit history_bytes ignore
     local severity display_severity location
 
@@ -72,6 +75,16 @@ render_report() {
             display_severity="$severity"
             monitored=$((monitored + 1))
             monitored_total=$((monitored_total + history_bytes))
+            case "$severity" in
+                warn)
+                    warning_count=$((warning_count + 1))
+                    action_panes="${action_panes}${severity}${TMUX_HISTORY_GUARD_FIELD_SEPARATOR}${pane_id}"$'\n'
+                    ;;
+                critical)
+                    critical_count=$((critical_count + 1))
+                    action_panes="${action_panes}${severity}${TMUX_HISTORY_GUARD_FIELD_SEPARATOR}${pane_id}"$'\n'
+                    ;;
+            esac
         fi
         location="${session_id}:${window_id}.${pane_index}"
         printf '%-8s %12s %6d/%-6d %-7s %s\n' \
@@ -90,6 +103,20 @@ render_report() {
     fi
     printf '.\n'
     printf 'This metric is pane history allocation, not tmux server RSS.\n'
+    if [ "$warning_count" -gt 0 ] || [ "$critical_count" -gt 0 ]; then
+        printf '\nNext steps:\n'
+        printf '  warn: inspect the pane and plan reclamation before it reaches critical.\n'
+        printf '  critical: archive important scrollback now, then clear it manually when safe.\n'
+        while IFS="$TMUX_HISTORY_GUARD_FIELD_SEPARATOR" read -r severity pane_id; do
+            [ -n "$pane_id" ] || continue
+            printf '  %-8s %-7s %s\n' "$severity" "$pane_id" \
+                "$(tmux_guard_pane_description "$pane_id")"
+        done <<< "$action_panes"
+        printf '\nFor a flagged PANE:\n'
+        printf '  archive: %s PANE\n' "$(tmux_guard_shell_quote "$SCRIPT_DIR/archive.sh")"
+        printf '  reclaim: tmux clear-history -t PANE\n'
+        printf 'Clearing permanently discards that scrollback; this plugin never runs it automatically.\n'
+    fi
 }
 
 if [ "$watch_mode" -eq 1 ]; then

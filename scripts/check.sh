@@ -40,19 +40,43 @@ tmux_guard_acquire_runtime_lock policy-check
 
 notify_clients() {
     local message="$1"
+    local escaped_message
     local duration
     local client
     local delivered=0
     duration="$(tmux_guard_unsigned_or \
         "$(tmux_guard_option @history-guard-notify-duration-ms 10000)" 10000)"
+    escaped_message="$(tmux_guard_escape_tmux_format "$message")"
     while IFS= read -r client; do
         [ -n "$client" ] || continue
-        if tmux_guard_tmux display-message -d "$duration" -c "$client" "$message"; then
+        if tmux_guard_tmux display-message -d "$duration" -c "$client" "$escaped_message"; then
             delivered=1
         fi
     done < <(tmux_guard_tmux list-clients \
         -F '#{?client_tty,#{client_tty},#{client_name}}' 2>/dev/null || true)
     [ "$delivered" -eq 1 ]
+}
+
+report_hint() {
+    local key
+    key="$(tmux_guard_option @history-guard-key H)"
+    if [ -n "$key" ] && [ "$key" != none ]; then
+        printf 'Press prefix+%s for next steps.' "$key"
+    else
+        printf 'Run %s for next steps.' "$SCRIPT_DIR/report.sh"
+    fi
+}
+
+alert_message() {
+    local severity="$1"
+    local pane_id="$2"
+    local history_bytes="$3"
+    printf 'tmux history %s: %s (%s) uses %s. %s' \
+        "$severity" \
+        "$pane_id" \
+        "$(tmux_guard_pane_description "$pane_id")" \
+        "$(tmux_guard_human_bytes "$history_bytes")" \
+        "$(report_hint)"
 }
 
 warn="$(tmux_guard_warn_bytes)"
@@ -67,7 +91,7 @@ critical_count=0
 active_state_names=''
 
 while IFS="$TMUX_HISTORY_GUARD_FIELD_SEPARATOR" read -r \
-    pane_id session_id window_id pane_index _history_size _history_limit history_bytes ignore; do
+    pane_id _session_id _window_id _pane_index _history_size _history_limit history_bytes ignore; do
     [ -n "$pane_id" ] || continue
     history_bytes="$(tmux_guard_unsigned_or "$history_bytes" 0)"
     total=$((total + history_bytes))
@@ -87,11 +111,11 @@ while IFS="$TMUX_HISTORY_GUARD_FIELD_SEPARATOR" read -r \
     if [ "$(tmux_guard_severity_rank "$severity")" -gt "$(tmux_guard_severity_rank "$previous")" ]; then
         previous_notified=0
         alert_count=$((alert_count + 1))
-        message="tmux history ${severity}: ${pane_id} (${session_id}:${window_id}.${pane_index}) uses $(tmux_guard_human_bytes "$history_bytes")"
+        message="$(alert_message "$severity" "$pane_id" "$history_bytes")"
         printf '%s\n' "$message"
         tmux_guard_tmux set-option -gq @history-guard-last-alert "$message"
     elif [ "$severity" != ok ] && [ "$previous_notified" != 1 ]; then
-        message="tmux history ${severity}: ${pane_id} (${session_id}:${window_id}.${pane_index}) uses $(tmux_guard_human_bytes "$history_bytes")"
+        message="$(alert_message "$severity" "$pane_id" "$history_bytes")"
     else
         message=''
     fi

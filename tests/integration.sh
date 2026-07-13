@@ -62,6 +62,17 @@ tmux -S "$TMUX_HISTORY_GUARD_SOCKET" set-option -g @history-guard-warn-bytes 1
 tmux -S "$TMUX_HISTORY_GUARD_SOCKET" set-option -g @history-guard-critical-bytes 999999999999
 check_output="$("$ROOT_DIR/scripts/check.sh")"
 printf '%s\n' "$check_output" | grep -F 'tmux history warn:' >/dev/null || fail 'check omitted threshold escalation'
+printf '%s\n' "$check_output" | grep -F 'Press prefix+H for next steps.' >/dev/null || \
+    fail 'check warning omitted report guidance'
+printf '%s\n' "$check_output" | grep -E ':0\.0 window=.* command=' >/dev/null || \
+    fail 'check warning omitted the human-readable pane target'
+warning_report="$("$ROOT_DIR/scripts/report.sh")"
+printf '%s\n' "$warning_report" | grep -F 'Next steps:' >/dev/null || \
+    fail 'warning report omitted next-step guidance'
+printf '%s\n' "$warning_report" | grep -F 'archive:' >/dev/null || \
+    fail 'warning report omitted archive guidance'
+printf '%s\n' "$warning_report" | grep -F 'tmux clear-history -t PANE' >/dev/null || \
+    fail 'warning report omitted manual reclamation guidance'
 second_check="$("$ROOT_DIR/scripts/check.sh")"
 [ -z "$second_check" ] || fail 'check repeated an unchanged warning'
 runtime_dir="$(tmux -S "$TMUX_HISTORY_GUARD_SOCKET" show-option -gqv @history-guard-runtime-dir)"
