@@ -18,7 +18,7 @@ tmux's `history-limit` is a line limit. A styled TUI can attach far more memory 
 
 ## Install
 
-With TPM, add the future repository URL to `.tmux.conf` after this project is published:
+With TPM, add the repository to `.tmux.conf`:
 
 ```tmux
 set -g @plugin 'aurokin/tmux-history-guard'
